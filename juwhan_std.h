@@ -16,48 +16,6 @@ using ::std::string;
 using ::std::size_t;
 
 // Reimplementation of a part of std. In case the library is not available.
-
-
-template< typename T > struct remove_reference						{ using type = T; };
-template< typename T > struct remove_reference<T&>				{ using type = T; };
-template< typename T > struct remove_reference<T&&>				{ using type = T; };
-template< typename T > struct remove_extent								{ using type = T; };
-template< typename T > struct remove_extent<T[]>					{ using type = T; };
-
-template<typename T>
-constexpr T&& forward(typename remove_reference<T>::type& t) noexcept
-{
-  return static_cast<T&&>(t);
-};
-// Oddly enough, c++11/14 standard requires this to be implemented. Maybe for the case forward is used outside function scope.
-template<typename T>
-constexpr T&& forward(typename remove_reference<T>::type&& t) noexcept
-{
-  return static_cast<T&&>(t);
-};
-// The following is a suggested HIGHLY SOPHISTICATED version of forward by Howard E. Hinnant at http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2009/n2951.html. The implementation is AS IS published on the website and COMMENTED OUT intentionally to honor simplicity. It is just for reference.
-/*template <class T, class U,
-    class = typename enable_if<
-         (is_lvalue_reference<T>::value ?
-             is_lvalue_reference<U>::value :
-             true) &&
-         is_convertible<typename remove_reference<U>::type*,
-                        typename remove_reference<T>::type*>::value
-    >::type>
-inline
-T&&
-forward(U&& u)
-{
-    return static_cast<T&&>(u);
-}*/
-
-template<typename T>
-constexpr typename remove_reference<T>::type&& move(T&& t) noexcept
-{
-	return static_cast<remove_reference<T>::type&&>(t);
-}
-
-
 template<typename T, T v>
 struct integral_constant {
     static constexpr T value = v;
@@ -73,7 +31,11 @@ template< typename T >
 struct remove_cv {
     using type = typename remove_volatile<typename remove_const<T>::type>::type;
 };
-
+template< typename T > struct remove_reference						{ using type = T; };
+template< typename T > struct remove_reference<T&>				{ using type = T; };
+template< typename T > struct remove_reference<T&&>				{ using type = T; };
+template< typename T > struct remove_extent								{ using type = T; };
+template< typename T > struct remove_extent<T[]>					{ using type = T; };
 template< typename T, size_t N >
 struct remove_extent<T[N]> 																{ using type = T; };
 template< class T > struct remove_pointer                    { using type = T; };
@@ -81,7 +43,6 @@ template< class T > struct remove_pointer<T*>                { using type = T; }
 template< class T > struct remove_pointer<T* const>          { using type = T; };
 template< class T > struct remove_pointer<T* volatile>       { using type = T; };
 template< class T > struct remove_pointer<T* const volatile> { using type = T; };
-
 template< typename T >
 struct add_pointer			{ using type = typename remove_reference<T>::type*; };
 using true_type = integral_constant<bool, true>;
@@ -193,6 +154,33 @@ struct decay {
     >::type
   >::type;
 };
+
+template<typename T>
+constexpr T&& forward(typename remove_reference<T>::type& t) noexcept
+{
+  return static_cast<T&&>(t);
+};
+// Oddly enough, c++11/14 standard requires this to be implemented. Maybe for the case forward is used outside function scope.
+template<typename T>
+constexpr T&& forward(typename remove_reference<T>::type&& t) noexcept
+{
+  return static_cast<T&&>(t);
+};
+// The following is a suggested HIGHLY SOPHISTICATED version of forward by Howard E. Hinnant at http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2009/n2951.html. The implementation is AS IS published on the website and COMMENTED OUT intentionally to honor simplicity. It is just for reference.
+/*template <class T, class U,
+    class = typename enable_if<
+         (is_lvalue_reference<T>::value ?
+             is_lvalue_reference<U>::value :
+             true) &&
+         is_convertible<typename remove_reference<U>::type*,
+                        typename remove_reference<T>::type*>::value
+    >::type>
+inline
+T&&
+forward(U&& u)
+{
+    return static_cast<T&&>(u);
+}*/
 
 
 template<typename T> 
