@@ -43,6 +43,8 @@ template<typename F, typename... A> inline void* launcher_helper(void* packed)
 	auto unpacked = unpack_parameters<F, A...>(packed);
 	// Execute.
 	(*unpacked)();
+	// Free memory.
+	free(packed);
 	pthread_exit(nullptr);
 }
 
@@ -88,12 +90,6 @@ public:
 		thread_joinable = true;
 	};
 	thread(const thread&) = delete;
-	// Required destructor.
-	~thread()
-	{
-		if (thread_active) free(parameter_pack_alias);
-		if (thread_joinable) join();
-	};
 	// Required move assignment.
 	thread& operator=(thread&& other) noexcept
 	{
@@ -153,7 +149,8 @@ public:
 		other.thread_active = tmp.thread_active;
 		other.thread_joinable = tmp.thread_joinable;
 	};
-
+	// Required destructor.
+	~thread() {};
 };
 inline bool operator==(thread::id lhs, thread::id rhs) noexcept	{ return lhs.value()==rhs.value(); };
 inline bool operator!=(thread::id lhs, thread::id rhs) noexcept	{ return lhs.value()!=rhs.value(); };
@@ -204,7 +201,7 @@ inline std::string convert2hex_string(thread::id::value_type number)
 	hex_string += convert2hex_char(half_byte_number);
 	return hex_string;
 }
-template<typename CharT, typename Traits> ::std::basic_ostream<CharT, Traits>&
+template<typename CharT, typename Traits> inline ::std::basic_ostream<CharT, Traits>&
 operator<<(::std::basic_ostream<CharT, Traits>& ost, thread::id id)
 {
 	return ost << convert2hex_string(id.value());
@@ -224,18 +221,18 @@ template<> struct hash<thread::id>
 	size_t operator()() { return static_cast<size_t>(value); };
 };
 
-	// From here, this_thread namespace.
-	namespace this_thread
-	{
+		// From here, this_thread namespace.
+		namespace this_thread
+		{
 
 
-void yield()
+inline void yield()
 {
 	auto result = sched_yield();
 	if (result) throw ::std::system_error{::std::error_code{}, "An unknown error occurred while trying to yield a thread."};
 }
 
-thread::id get_id()
+inline thread::id get_id()
 {
 	pthread_t thread_id = pthread_self();
 	// Now, convert this value into an id.
@@ -251,7 +248,7 @@ void sleep_for( const std::chrono::duration<Rep, Period>& sleep_duration );
 template< class Clock, class Duration >
 void sleep_until( const std::chrono::time_point<Clock,Duration>& sleep_time );*/
 
-	}  // End of namespace this_thread.
+		}  // End of namespace this_thread.
 
 
 
