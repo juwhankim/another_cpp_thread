@@ -1,7 +1,7 @@
 #ifndef juwhan_thread_h
 #define juwhan_thread_h
 
-#include <ostream>
+#include <iostream>
 #include <string>
 #include <cstring>
 #include <pthread.h>
@@ -18,17 +18,17 @@ Strictly speaking, writing this is practically re-inventing the wheel, i.e., stu
 Even so, I am doing this because
 1. On MacOSX thread local storage doesn't work, and I am pretty sure it won't on Android either.
 2. So I tried pthread_get/setspecific. Failed miserably with ABI error.
-3. It turns out that pthread_get/setspecific is INCOMPATIBLE with std::thread.
+3. It turns out that pthread_get/setspecific is INCOMPATIBLE with thread.
 4. Atomics seem to work in pthread.
 5. I concluded that pthread is more stringent than std:thread.
-6. I still want the convenience std::thread provide.
-7. Hence, write a wrapper around pthread that works like std::thread.
+6. I still want the convenience thread provide.
+7. Hence, write a wrapper around pthread that works like thread.
 */
 
 namespace juwhan
 {
-	namespace std
-	{
+
+using namespace std;
 
 template<size_t S> struct thread_id_int_t_helper {};
 template<> struct thread_id_int_t_helper<2> {using type = uint16_t; };
@@ -75,7 +75,7 @@ public:
 	template<typename F, typename... A> explicit thread(F&& func, A&&... args)
 	: thread_id{0}, thread_active{false}, thread_joinable{false}
 	{
-		// std::system_error if the thread could not be started. The exception may represent the error condition std::errc::resource_unavailable_try_again or another implementation-specific error condition.
+		// system_error if the thread could not be started. The exception may represent the error condition errc::resource_unavailable_try_again or another implementation-specific error condition.
 		// Make a parameter pack.
 		parameter_pack_alias = pack_parameters(forward<F>(func), forward<A>(args)...); // This is supposed to be a void*.
 		// Create a thread.
@@ -84,7 +84,7 @@ public:
 		{
 			// Clear out.
 			thread_id = 0;
-			throw ::std::system_error{::std::error_code{}, "Thread creation failure."};
+			throw system_error{error_code{}, "Thread creation failure."};
 		}
 		thread_active = true;
 		thread_joinable = true;
@@ -112,7 +112,7 @@ public:
 	{
 		// Memcopy thread_id into id's value.
 		id _id{};
-		::std::memcpy(&_id.value(), &thread_id, sizeof(pthread_t));
+		memcpy(&_id.value(), &thread_id, sizeof(pthread_t));
 		return _id;
 	};
 	native_handle_type native_handle() noexcept { return thread_id; };
@@ -120,9 +120,9 @@ public:
 	// Required operations.
 	void join()
 	{ 
-		// Throws std::system_error.
-		if (!thread_active) throw ::std::system_error{::std::error_code{}, "Thread join has been requested on an inactive thread."};
-		if (!thread_joinable) throw ::std::system_error{::std::error_code{}, "Thread join has been requested on an unjoinale thread."};
+		// Throws system_error.
+		if (!thread_active) throw system_error{error_code{}, "Thread join has been requested on an inactive thread."};
+		if (!thread_joinable) throw system_error{error_code{}, "Thread join has been requested on an unjoinale thread."};
 		pthread_join(thread_id, nullptr);
 		thread_joinable = false;
 		thread_active = false;
@@ -130,9 +130,9 @@ public:
 	};
 	void detach()
 	{
-		// std::system_error if joinable() == false or an error occurs.
-		if (!thread_active) throw ::std::system_error{::std::error_code{}, "Thread detach has been requested on an inactive thread."};
-		if (!thread_joinable) throw ::std::system_error{::std::error_code{}, "Thread detach has been requested on an unjoinable thread."};
+		// system_error if joinable() == false or an error occurs.
+		if (!thread_active) throw system_error{error_code{}, "Thread detach has been requested on an inactive thread."};
+		if (!thread_joinable) throw system_error{error_code{}, "Thread detach has been requested on an unjoinable thread."};
 		pthread_detach(thread_id);
 		thread_joinable = false;
 	};
@@ -161,7 +161,7 @@ inline bool operator>=(thread::id lhs, thread::id rhs) noexcept	{ return lhs.val
 // Non-member swap.
 // void swap(thread& lhs, thread& rhs) {};
 // id output.
-inline std::string convert2hex_char(thread_id_int_t::type number)
+inline string convert2hex_char(thread_id_int_t::type number)
 {
 	switch (number)
 	{
@@ -185,9 +185,9 @@ inline std::string convert2hex_char(thread_id_int_t::type number)
 	// Something went wrong.
 	return "";
 }
-inline std::string convert2hex_string(thread::id::value_type number)
+inline string convert2hex_string(thread::id::value_type number)
 {
-	std::string hex_string = "0x";
+	string hex_string = "0x";
 	auto byte_size = sizeof(thread_id_int_t::type);
 	auto half_byte_size = byte_size*2;
 	thread::id::value_type hex_mask = (16-1) << (half_byte_size*4-4);
@@ -201,8 +201,8 @@ inline std::string convert2hex_string(thread::id::value_type number)
 	hex_string += convert2hex_char(half_byte_number);
 	return hex_string;
 }
-template<typename CharT, typename Traits> inline ::std::basic_ostream<CharT, Traits>&
-operator<<(::std::basic_ostream<CharT, Traits>& ost, thread::id id)
+template<typename CharT, typename Traits> inline basic_ostream<CharT, Traits>&
+operator<<(basic_ostream<CharT, Traits>& ost, thread::id id)
 {
 	return ost << convert2hex_string(id.value());
 };
@@ -229,7 +229,7 @@ template<> struct hash<thread::id>
 inline void yield()
 {
 	auto result = sched_yield();
-	if (result) throw ::std::system_error{::std::error_code{}, "An unknown error occurred while trying to yield a thread."};
+	if (result) throw system_error{error_code{}, "An unknown error occurred while trying to yield a thread."};
 }
 
 inline thread::id get_id()
@@ -237,22 +237,19 @@ inline thread::id get_id()
 	pthread_t thread_id = pthread_self();
 	// Now, convert this value into an id.
 	thread::id _id;
-	::std::memcpy(&_id.value(), &thread_id, sizeof(pthread_t));
+	memcpy(&_id.value(), &thread_id, sizeof(pthread_t));
 	return _id;
 }
 
 // Future implementation.
 /*template< class Rep, class Period >
-void sleep_for( const std::chrono::duration<Rep, Period>& sleep_duration );
+void sleep_for( const chrono::duration<Rep, Period>& sleep_duration );
 
 template< class Clock, class Duration >
-void sleep_until( const std::chrono::time_point<Clock,Duration>& sleep_time );*/
+void sleep_until( const chrono::time_point<Clock,Duration>& sleep_time );*/
 
 		}  // End of namespace this_thread.
 
-
-
-	}  // End of namespace thread.
 }  // End of namespace juwhan.
 
 

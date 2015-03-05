@@ -14,10 +14,8 @@
  
 namespace juwhan
 {
-	namespace std
+	namespace internal
 	{
-		namespace internal
-		{
 
 class any_class;
 using ptr_to_any_class = any_class*;
@@ -186,9 +184,9 @@ struct member_func_to_static_func<TReturn(TThis::*)(TArgs...) const>
 	using Type = TReturn(*)(TArgs...); 
 };
 
-#define ENABLE_IF_CONV_TO_FUN_PTR(x) typename ::std::enable_if<::std::is_constructible<typename member_func_to_static_func<decltype(&::std::decay<x>::type::operator())>::Type, x>::value>::type* = nullptr
-#define ENABLE_IF_NOT_CONV_TO_FUN_PTR(x) typename ::std::enable_if<!::std::is_constructible<typename member_func_to_static_func<decltype(&::std::decay<x>::type::operator())>::Type, x>::value>::type* = nullptr
-#define ENABLE_IF_SAME_TYPE(x, y)	typename = typename ::std::enable_if<!::std::is_same<x, typename ::std::decay<y>::type>{}>::type
+// #define ENABLE_IF_CONV_TO_FUN_PTR(x) typename ::std::enable_if<::std::is_constructible<typename member_func_to_static_func<decltype(&::std::decay<x>::type::operator())>::Type, x>::value>::type* = nullptr
+// #define ENABLE_IF_NOT_CONV_TO_FUN_PTR(x) typename ::std::enable_if<!::std::is_constructible<typename member_func_to_static_func<decltype(&::std::decay<x>::type::operator())>::Type, x>::value>::type* = nullptr
+#define ENABLE_IF_NOT_SAME(x, y)	typename = typename ::std::enable_if<!::std::is_same<x, typename ::std::decay<y>::type>{}>::type
 
 template<typename T> class fast_function;
 
@@ -197,7 +195,7 @@ class fast_function<TReturn(TArgs...)> : public internal::fast_function_implemen
 {
 private:
 	using base_type = internal::fast_function_implementation<TReturn, TArgs...>;
-	::std::shared_ptr<void> storage;
+	// ::std::shared_ptr<void> storage;
 	template<typename T> inline static void funcDeleter(void* mPtr) { static_cast<T*>(mPtr)->~T(); operator delete(mPtr); }
 
 public:
@@ -205,21 +203,23 @@ public:
 
 	inline fast_function() noexcept = default;
 
-	template<typename TFunc, ENABLE_IF_SAME_TYPE(fast_function, TFunc)> 
-	inline fast_function(TFunc&& mFunc, ENABLE_IF_CONV_TO_FUN_PTR(TFunc))
+	template<typename TFunc, ENABLE_IF_NOT_SAME(fast_function, TFunc)> 
+	// inline fast_function(TFunc&& mFunc, ENABLE_IF_CONV_TO_FUN_PTR(TFunc))
+	inline fast_function(TFunc&& mFunc)
 	{
 		using FuncType = typename ::std::decay<TFunc>::type;
 		this->bind(&mFunc, &FuncType::operator());
 	}
 
-	template<typename TFunc, ENABLE_IF_SAME_TYPE(fast_function, TFunc)> 
-	inline fast_function(TFunc&& mFunc, ENABLE_IF_NOT_CONV_TO_FUN_PTR(TFunc))
-	: storage(operator new(sizeof(TFunc)), funcDeleter<typename ::std::decay<TFunc>::type>)
-	{
-		using FuncType = typename ::std::decay<TFunc>::type;
-		new (storage.get()) FuncType(::std::forward<TFunc>(mFunc));
-		this->bind(storage.get(), &FuncType::operator());
-	}
+	// template<typename TFunc, ENABLE_IF_NOT_SAME(fast_function, TFunc)> 
+	// inline fast_function(TFunc&& mFunc, ENABLE_IF_NOT_CONV_TO_FUN_PTR(TFunc))
+	// : storage(operator new(sizeof(TFunc)), funcDeleter<typename ::std::decay<TFunc>::type>)
+	// {
+	// 	::std::cout << "Class2\n";
+	// 	using FuncType = typename ::std::decay<TFunc>::type;
+	// 	new (storage.get()) FuncType(::std::forward<TFunc>(mFunc));
+	// 	this->bind(storage.get(), &FuncType::operator());
+	// }
 };
 
 #undef ENABLE_IF_CONV_TO_FUN_PTR
@@ -227,7 +227,6 @@ public:
 #undef ENABLE_IF_SAME_TYPE
 
 
-	}  // End of namespace task.
 }   // End of namespace juwhan.
 
 #endif

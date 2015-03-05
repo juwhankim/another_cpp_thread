@@ -9,8 +9,7 @@
 
 namespace juwhan
 {
-	namespace std
-	{
+
 
 using ::std::string;
 using ::std::size_t;
@@ -86,6 +85,13 @@ template< class T > struct remove_pointer<T* const volatile> { using type = T; }
 
 template< typename T >
 struct add_pointer			{ using type = typename remove_reference<T>::type*; };
+
+template< typename T>
+struct add_rvalue_reference	{ using type = T&&; };
+
+template< typename T>
+struct add_lvalue_reference	{ using type = T&; };
+
 using true_type = integral_constant<bool, true>;
 using false_type = integral_constant<bool, false>;
 template< typename T > struct is_pointer_helper     : false_type {};
@@ -200,7 +206,7 @@ struct decay {
 
 // Oddly enough, android NDK does not support to_string. Make it.
 
-string to_string(int value)
+inline string to_string(int value)
 {
 	char* buffer;
 	// Implement here.
@@ -220,7 +226,7 @@ string to_string(int value)
 	return return_value;
 };
 
-string to_string(long value)
+inline string to_string(long value)
 {
 	char* buffer;
 	// Implement here.
@@ -240,7 +246,7 @@ string to_string(long value)
 	return return_value; 
 };
 
-string to_string(long long value)
+inline string to_string(long long value)
 {
 	char* buffer;
 	// Implement here.
@@ -260,7 +266,7 @@ string to_string(long long value)
 	return return_value; 
 };
 
-string to_string(unsigned value)
+inline string to_string(unsigned value)
 {
 	char* buffer;
 	// Implement here.
@@ -280,7 +286,7 @@ string to_string(unsigned value)
 	return return_value; 
 };
 
-string to_string(unsigned long value)
+inline string to_string(unsigned long value)
 {
 	char* buffer;
 	// Implement here.
@@ -300,7 +306,7 @@ string to_string(unsigned long value)
 	return return_value;
 };
 
-string to_string(unsigned long long value)
+inline string to_string(unsigned long long value)
 {
 	char* buffer;
 	// Implement here.
@@ -320,7 +326,7 @@ string to_string(unsigned long long value)
 	return return_value;
 };
 
-string to_string(float value)
+inline string to_string(float value)
 {
 	char* buffer;
 	// Implement here.
@@ -340,7 +346,7 @@ string to_string(float value)
 	return return_value;
 };
 
-string to_string(double value)
+inline string to_string(double value)
 {
 	char* buffer;
 	// Implement here.
@@ -360,7 +366,7 @@ string to_string(double value)
 	return return_value;
 };
 
-string to_string(long double value)
+inline string to_string(long double value)
 {
 	char* buffer;
 	// Implement here.
@@ -392,7 +398,7 @@ F_T_H_MACRO(1); F_T_H_MACRO(2); F_T_H_MACRO(3); F_T_H_MACRO(4); F_T_H_MACRO(5); 
 #define F_T_H_MACRO(N) template<typename H> struct function_traits_helper<N, H> { static constexpr size_t arity = N; using arg##N##_type = H; };
 F_T_H_MACRO(1); F_T_H_MACRO(2); F_T_H_MACRO(3); F_T_H_MACRO(4); F_T_H_MACRO(5); F_T_H_MACRO(6); F_T_H_MACRO(7); F_T_H_MACRO(8); F_T_H_MACRO(9); F_T_H_MACRO(10);
 #undef F_T_H_MACRO
-template<typename R, typename... A> struct function_traits {};
+template<typename R = void, typename... A> struct function_traits {};
 // Real functions.
 template<typename R, typename... A>
 struct function_traits<R(A...)> : function_traits_helper<1, A...>
@@ -426,6 +432,30 @@ template<typename R> struct function_traits<R(*)()>
 	static constexpr size_t arity = 0;
 	using result_type = R;
 };
+// Class member functions.
+template<typename R, typename C, typename... A>
+struct function_traits<R(C::*)(A...)> : function_traits_helper<1, A...>
+{
+	using result_type = R;
+};
+template<typename R, typename C> struct function_traits<R(C::*)()>
+{
+	static constexpr size_t arity = 0;
+	using result_type = R;
+};
+// Const class member functions.
+template<typename R, typename C, typename... A>
+struct function_traits<R(C::*)(A...) const> : function_traits_helper<1, A...>
+{
+	using result_type = R;
+};
+template<typename R, typename C> struct function_traits<R(C::*)() const>
+{
+	static constexpr size_t arity = 0;
+	using result_type = R;
+};
+// Lambda functions.
+template<typename T> struct function_traits<T> : function_traits<decltype(&T::operator())> {};
 
 // To utilize SFINAE, if condition is true, type is void.
 template<bool B> struct void_if {};
@@ -459,7 +489,124 @@ public:
 };
 
 
-	}  // End of namespace std.
+template< class T >
+inline typename add_rvalue_reference<T>::type declval() noexcept;
+
+		namespace detail 
+		{
+
+template <typename F, typename... Args>
+inline auto INVOKE(F&& f, Args&&... args) ->
+    decltype(forward<F>(f)(forward<Args>(args)...)) {
+      return forward<F>(f)(forward<Args>(args)...);
+}
+ 
+template <typename Base, typename T, typename Derived>
+inline auto INVOKE(T Base::*pmd, Derived&& ref) ->
+    decltype(forward<Derived>(ref).*pmd) {
+      return forward<Derived>(ref).*pmd;
+}
+ 
+template <typename PMD, typename Pointer>
+inline auto INVOKE(PMD&& pmd, Pointer&& ptr) ->
+    decltype((*forward<Pointer>(ptr)).*forward<PMD>(pmd)) {
+      return (*forward<Pointer>(ptr)).*forward<PMD>(pmd);
+}
+ 
+template <typename Base, typename T, typename Derived, typename... Args>
+inline auto INVOKE(T Base::*pmf, Derived&& ref, Args&&... args) ->
+    decltype((forward<Derived>(ref).*pmf)(forward<Args>(args)...)) {
+      return (forward<Derived>(ref).*pmf)(forward<Args>(args)...);
+}
+ 
+template <typename PMF, typename Pointer, typename... Args>
+inline auto INVOKE(PMF&& pmf, Pointer&& ptr, Args&&... args) ->
+    decltype(((*forward<Pointer>(ptr)).*forward<PMF>(pmf))(forward<Args>(args)...)) {
+      return ((*forward<Pointer>(ptr)).*forward<PMF>(pmf))(forward<Args>(args)...);
+}
+
+
+		} // End of namespace detail.
+ 
+// Minimal C++11 implementation:
+template <typename> struct result_of;
+template <typename F, typename... ArgTypes>
+struct result_of<F(ArgTypes...)> {
+    using type = decltype(detail::INVOKE(std::declval<F>(), std::declval<ArgTypes>()...));
+};
+ 
+// Conforming C++14 implementation (is also a valid C++11 implementation):
+		namespace detail 
+		{
+
+template <typename, typename = void>
+struct result_of {};
+template <typename F, typename...Args>
+struct result_of<F(Args...),
+                 decltype(void(detail::INVOKE(std::declval<F>(), std::declval<Args>()...)))> {
+    using type = decltype(detail::INVOKE(std::declval<F>(), std::declval<Args>()...));
+};
+
+
+		} // End of namespace detail.
+ 
+template <typename T> struct result_of : detail::result_of<T> {};
+
+template<typename R = void, typename... A> struct function_type_deduction {};
+
+template<typename R, typename... A> struct function_type_deduction<R(A...)>
+{
+	static constexpr bool is_static = true;
+	static constexpr bool is_member = false;
+	static constexpr bool is_functor = false;
+	using full_traits = R(A...);
+	using simplified_traits = R(A...);
+};
+
+template<typename R, typename C, typename... A> struct function_type_deduction<R(C::*)(A...)>
+{
+	static constexpr bool is_static = false;
+	static constexpr bool is_member = true;
+	static constexpr bool is_functor = false;
+	using full_traits = R(C::*)(A...);
+	using simplified_traits = R(A...);
+};
+
+template<typename R, typename C, typename... A> struct function_type_deduction<R(C::*)(A...) const>
+{
+	static constexpr bool is_static = false;
+	static constexpr bool is_member = true;
+	static constexpr bool is_functor = false;
+	using full_traits = R(C::*)(A...) const;
+	using simplified_traits = R(A...);
+};
+
+template<typename R, typename... A> struct function_type_deduction<R(*)(A...)>
+{
+	static constexpr bool is_static = true;
+	static constexpr bool is_member = false;
+	static constexpr bool is_functor = false;
+	using full_traits = R(*)(A...);
+	using simplified_traits = R(A...);
+};
+
+template<typename R, typename... A> struct function_type_deduction<R(&)(A...)>
+{
+	static constexpr bool is_static = true;
+	static constexpr bool is_member = false;
+	static constexpr bool is_functor = false;
+	using full_traits = R(&)(A...);
+	using simplified_traits = R(A...);
+};
+
+template<typename T> struct function_type_deduction<T> : function_type_deduction<decltype(&T::operator())> 
+{
+	static constexpr bool is_static = false;
+	static constexpr bool is_member = false;
+	static constexpr bool is_functor = true;
+};
+
+
 }  // End of namespace juwhan.
 
 
