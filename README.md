@@ -1,4 +1,4 @@
-# anothre_cpp_thread
+# another_cpp_thread
 A c++11 thread class implemented using pthread
 
 The C++11 standard library thread is easy to use, and beautifully designed.
